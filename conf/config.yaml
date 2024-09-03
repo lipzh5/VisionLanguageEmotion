@@ -70,7 +70,8 @@ model:
 train:
   vle_model_name: vle_model.pth 
   save_model: False
- 
+  
+  use_faceseq160: False
   vfeat_neutral_norm: True
   num_workers: 16
   resnet_trainable: True

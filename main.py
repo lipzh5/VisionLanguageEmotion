@@ -147,7 +147,7 @@ def main(cfg: DictConfig) -> None:
 		log.info(f'Consumed {(time.time() - ts)/3600} h for epoch {epoch} | val wf: {val_wf} | test wf: {test_wf}')
 
 	
-	cfg.train.save_model and save_multimodal_model(model, optimizer, cfg, curr_time=strftime("%m-%d-%H-%M-%S"), device_id=device_id, trial_name=trial_name)
+	# cfg.train.save_model and save_multimodal_model(model, optimizer, cfg, curr_time=strftime("%m-%d-%H-%M-%S"), device_id=device_id, trial_name=trial_name)
 
 
 if __name__ == "__main__":

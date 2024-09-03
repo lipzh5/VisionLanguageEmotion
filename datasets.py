@@ -296,6 +296,11 @@ class MultimodalDataset(Dataset):
 		with open(utt_profile_path, 'r') as rd:
 			self.utt_profile = json.load(rd)   # 'idx': ['utt_name', 'dia-name',...]
 		self.vision_feat_fetcher = self._fetch_vision_feat_from_processor_openface
+		if cfg.train.use_faceseq160:
+			face160_path = os.path.join(dataset_path, 'vision', f'{self.split_type}_facseqs_160_paths_final.json')
+			with open(face160_path, 'r') as f:
+				self.utt_face_path = json.load(f)
+			self.setup_vision_feat_fetcher = self._fetch_vision_feat_from_processor
 		
 
 	def init_text_with_context_modeling(self, anno_csv_dir, split_type, vocab_path, pretrained_path, max_len, pad_value):
@@ -358,8 +363,6 @@ class MultimodalDataset(Dataset):
 	def _fetch_vision_feat_from_processor_openface(self, index):
 		curr_utt_name, curr_dia_name, dia_idx, curr_dia_len,  curr_idx_in_dia = self.utt_profile[str(index)]
 		curr_utt_frm_list = self.openface_img_paths[curr_utt_name][:VISION_MAX_UTT_LEN] # sequence of image path
-		# if self.vfeat_downsample_to > 0:
-		# 	curr_utt_frm_list = downsample_images(curr_utt_frm_list)
 
 		speaker_name=self.utt_to_speaker.get(curr_utt_name)
 		neutral_face_path = osp.join(self.neutral_face_path, f'{speaker_name}_neutral.bmp') if speaker_name else None
@@ -367,6 +370,17 @@ class MultimodalDataset(Dataset):
 		return preprocess_input_vision_encoder(
 			curr_utt_frm_list, self.data_transform_cfg, split_type=self.split_type, 
 			no_resize=False, neutral_norm=self.vfeat_neutral_norm, neutral_face_path=neutral_face_path)
+	
+	def _fetch_vision_feat_from_processor(self, index):
+		curr_utt_name, curr_dia_name, dia_idx, curr_dia_len,  curr_idx_in_dia = self.utt_profile[str(index)]
+		curr_utt_frm_list = self.utt_face_path[curr_utt_name][:VISION_MAX_UTT_LEN] # sequence of image path
+		
+		speaker_name=self.utt_to_speaker.get(curr_utt_name)
+		neutral_face_path = osp.join(self.cwd, f'neutral_faces/{speaker_name}_neutral.bmp') if speaker_name else None
+		return preprocess_input_vision_encoder(
+			curr_utt_frm_list, self.data_transform_cfg, split_type=self.split_type, 
+			no_resize=False, neutral_norm=self.vfeat_neutral_norm, neutral_face_path=neutral_face_path)
+
 	
 
 
