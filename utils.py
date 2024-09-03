@@ -58,9 +58,6 @@ def get_multimodal_data(cfg, split_type='train'):
     return MultimodalDataset(cfg, split_type)
 
 
-
-
-
 def save_model(model, optimizer, cfg, model_name='vle_model.pth'):
     save_path = cfg.train.save_model_path
     if not osp.exists(save_path):
@@ -76,35 +73,6 @@ def save_model(model, optimizer, cfg, model_name='vle_model.pth'):
         print(f'saved model at: {save_path} \n******')
 
 
-
-# def load_multimodal_model(cfg, best_model_time, load_path='', device_id=0, from_ckpt=True):
-    
-#     if from_ckpt:
-#         model = MultimodalFactory.get_model_instance(cfg) #VALTransformer(cfg)
-#         if not load_path:
-#             load_path = osp.join(cfg.train.save_model_path, 'temp', f'multimodal_model_{cfg.modalities}_{best_model_time}.pth')
-#         ckpt = torch.load(load_path, map_location='cpu')
-#         state_dict = ckpt['model']
-#         model = model.cuda(device_id)
-#         model.load_state_dict(state_dict)
-#         return model
-#     if not load_path:
-#         load_path = osp.join(cfg.train.save_model_path, 'temp', f'multimodal_model_{cfg.modalities}_{best_model_time}_G{device_id}.pt')
-#     model = torch.load(load_path)
-#     return model
-
-# def set_audio_encoder(cfg):
-#     model_name = cfg.model.audio_encoder.model_name  # data2vec: used in TelME
-#     if model_name == 'data2vec':
-#         audio_encoder = Data2VecAudioModel.from_pretrained(cfg.model.audio_encoder.pretrained_path)
-#     elif model_name == 'wav2vec':
-#         audio_encoder = Wav2Vec2Model.from_pretrained(cfg.model.audio_encoder.pretrained_path_wav2vec)
-    
-#     # self.audio_encoder_trainable = cfg.train.audio_encoder_trainable
-#     audio_enc_trainable = cfg.train.resnet_trainable
-#     audio_encoder.train(audio_enc_trainable)
-#     audio_encoder.requires_grad_(audio_enc_trainable)
-#     return audio_encoder
 
 def set_vision_encoder(cfg):
     use_webface_pretrain = cfg.model.vision_encoder.use_webface_pretrain

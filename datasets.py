@@ -98,7 +98,7 @@ def preprocess_input_vision_encoder(image_path_list, cfg, split_type, no_padding
 
 	# filter_masked_openface = cfg.train.vfeat_filter_masked_openface   # filterout all zero images (no landmark detected)
 
-	if neutral_norm == 1:  # normalize using neural frame
+	if neutral_norm:  # normalize using neural frame
 		# img_mask = img_mask[1:]   # drop the first ref frame
 		if neutral_face_path is not None:
 			ref_frame = cv2.imread(neutral_face_path)
@@ -240,32 +240,6 @@ def get_openface_aligned_img_paths(anno_csv_path, split_type, img_paths_save_to=
 	return img_paths
 
 
-# def get_openface_masked_aligned_img_paths(anno_csv_path, split_type, img_paths_save_to='openface_masked_img_paths_train.json'):
-# 	if osp.exists(img_paths_save_to):
-# 		with open(img_paths_save_to, 'r') as fp:
-# 			data = json.load(fp)
-# 		return data
-
-# 	img_paths = {}
-# 	face_dir = osp.join(anno_csv_path, f'preprocessed_data/vision/openfacefeat_masked_{split_type}')
-# 	utt_names = os.listdir(face_dir)   # 9989
-# 	for utt_name in utt_names:
-# 		# img_dir = osp.join(face_dir, utt_name, f'{utt_name}_aligned')
-# 		img_dir = osp.join(face_dir, utt_name)
-# 		try:
-# 			imgs = sorted(os.listdir(img_dir))
-# 			img_paths[utt_name] = [osp.join(img_dir, img_name) for img_name in imgs]
-# 		except Exception as e:
-# 			print(str(e))
-# 			print(f'================no aligned images in {utt_name}===============')
-
-# 	with open(img_paths_save_to, 'w') as fp:
-# 		json.dump(img_paths, fp)
-
-# 	return img_paths
-
-
-
 def get_utt_to_speaker(anno_csv_path, split_type): 
 	'''for leading roles only'''
 	file_path = osp.join(anno_csv_path, f'{split_type}_sent_emo.csv')
@@ -278,20 +252,6 @@ def get_utt_to_speaker(anno_csv_path, split_type):
 		if speaker_name in LEARDING_ROLES:
 			utt_to_speaker[utt_name] = speaker_name
 	return utt_to_speaker
-
-
-# def downsample_images(image_path_list, target_len=100):
-# 	n_img = len(image_path_list)
-# 	if n_img <= target_len:
-# 		return image_path_list
-# 	mid_idx = n_img // 2
-# 	l_idx = mid_idx - 25  #
-# 	r_idx = l_idx + 25
-# 	res_list = image_path_list[:l_idx:2]
-# 	res_list.extend(image_path_list[l_idx:r_idx])
-# 	res_list.extend(image_path_list[r_idx:])
-# 	res_list = res_list[:target_len]
-# 	return res_list
 	 
 
 # input faceseq directly and adapt face embedding during training
@@ -321,21 +281,13 @@ class MultimodalDataset(Dataset):
 		self.setup_vision_feat_fetcher(cfg)
 
 		self.vfeat_neutral_norm = cfg.train.vfeat_neutral_norm
+		self.neutral_face_path = cfg.dataset.meld.neutral_face_path
 
 		# if cfg.train.vfeat_penny == 3 and not cfg.train.vfeat_from_pkl:  # using imgs obtained from openface
 		save_to = osp.join(anno_csv_path, f'preprocessed_data/vision/openface_img_paths_{split_type}.json')
 		self.openface_img_paths = get_openface_aligned_img_paths(anno_csv_path, split_type, save_to)
 		print(f'openface img path: {save_to} \n *****')
-		# if cfg.train.vfeat_penny == 4 and not cfg.train.vfeat_from_pkl:  # using masked imgs obtained from openface
-		# 	save_to = osp.join(anno_csv_path, f'preprocessed_data/vision/openface_masked_img_paths_{split_type}.json')
-		# 	self.openface_masked_img_paths = get_openface_masked_aligned_img_paths(anno_csv_path, split_type, save_to)
-		# 	print(f'openface masked img path: {save_to}')
-
-		# if self.vfeat_apply_au:
-		# 	cfg.train.vfeat_zeros = True  # if apply au, then must clear vfeat
-		# self.vision_encoder_name = cfg.model.audio_encoder.model_name
 		
-
 
 	def setup_vision_feat_fetcher(self, cfg):
 		dataset_path = cfg.dataset.data_load_path
@@ -344,21 +296,7 @@ class MultimodalDataset(Dataset):
 		with open(utt_profile_path, 'r') as rd:
 			self.utt_profile = json.load(rd)   # 'idx': ['utt_name', 'dia-name',...]
 		self.vision_feat_fetcher = self._fetch_vision_feat_from_processor_openface
-		# face160_path = os.path.join(dataset_path, 'vision', f'{self.split_type}_facseqs_160_paths_final.json')
-		# with open(face160_path, 'r') as f:
-		# 	self.utt_face_path = json.load(f)
 		
-
-		# vfeat_penny = cfg.train.vfeat_penny
-		# if vfeat_penny == 3:
-		# 	self.vision_feat_fetcher = self._fetch_vision_feat_from_processor_openface
-		# elif vfeat_penny == 4:
-		# 	print(f'featch vision feature from processor openface masked!!!\n*****')
-		# 	self.vision_feat_fetcher = self._fetch_vision_feat_from_processor_openface_masked
-		# else:
-		# 	self.vision_feat_fetcher = self._fetch_vision_feat_from_processor
-			
-	
 
 	def init_text_with_context_modeling(self, anno_csv_dir, split_type, vocab_path, pretrained_path, max_len, pad_value):
 		 # construct additional training data for other modalities (TODO : construct from raw input)
@@ -416,17 +354,6 @@ class MultimodalDataset(Dataset):
 	def _fetch_vision_feat_from_pkl(self, index):
 		return self.vision_feature[index], self.vision_utterance_mask[index]
 	
-	# def _fetch_vision_feat_from_processor(self, index):
-	# 	curr_utt_name, curr_dia_name, dia_idx, curr_dia_len,  curr_idx_in_dia = self.utt_profile[str(index)]
-	# 	curr_utt_frm_list = self.utt_face_path[curr_utt_name][:VISION_MAX_UTT_LEN] # sequence of image path
-	# 	# if self.vfeat_downsample_to > 0:
-	# 	# 	curr_utt_frm_list = downsample_images(curr_utt_frm_list)
-
-	# 	speaker_name=self.utt_to_speaker.get(curr_utt_name)
-	# 	neutral_face_path = osp.join(self.cwd, f'neutral_faces/{speaker_name}_neutral.bmp') if speaker_name else None
-	# 	return preprocess_input_vision_encoder(
-	# 		curr_utt_frm_list, self.data_transform_cfg, split_type=self.split_type, 
-	# 		no_resize=self.vision_encoder_name=='resnet50', neutral_norm=self.vfeat_neutral_norm, neutral_face_path=neutral_face_path)
 
 	def _fetch_vision_feat_from_processor_openface(self, index):
 		curr_utt_name, curr_dia_name, dia_idx, curr_dia_len,  curr_idx_in_dia = self.utt_profile[str(index)]
@@ -435,7 +362,7 @@ class MultimodalDataset(Dataset):
 		# 	curr_utt_frm_list = downsample_images(curr_utt_frm_list)
 
 		speaker_name=self.utt_to_speaker.get(curr_utt_name)
-		neutral_face_path = osp.join(self.cwd, f'neutral_faces/{speaker_name}_neutral.bmp') if speaker_name else None
+		neutral_face_path = osp.join(self.neutral_face_path, f'{speaker_name}_neutral.bmp') if speaker_name else None
 		
 		return preprocess_input_vision_encoder(
 			curr_utt_frm_list, self.data_transform_cfg, split_type=self.split_type, 
