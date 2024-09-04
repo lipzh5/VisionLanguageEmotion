@@ -100,7 +100,7 @@ def preprocess_input_vision_encoder(image_path_list, cfg, split_type, no_padding
 
 	if neutral_norm:  # normalize using neural frame
 		# img_mask = img_mask[1:]   # drop the first ref frame
-		if neutral_face_path is not None:
+		if neutral_face_path is not None and neutral_norm == 1:  # TODO neutral_norm=1, then use the neutral faces of leading roles
 			ref_frame = cv2.imread(neutral_face_path)
 			# ref_frame = resize(ref_frame)
 		else:

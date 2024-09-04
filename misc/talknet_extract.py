@@ -11,7 +11,7 @@ import os.path as osp
 
 
 
-split_type = 'test'
+split_type = 'train'
 source_path = f'/home/penny/pycharmprojects/common/data/meld/raw/MELD.Raw/{split_type}'
 # target_path = f'/home/penny/pycharmprojects/common/data/meld/raw/MELD.Raw/openfacefeat_{split_type}'
 

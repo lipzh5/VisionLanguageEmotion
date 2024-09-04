@@ -95,7 +95,8 @@ def main(cfg: DictConfig) -> None:
 	wp_rate = cfg.train.warm_up
 	vfeat_webface = int(cfg.model.vision_encoder.use_webface_pretrain)
 	vfeat_neutral_norm = cfg.train.vfeat_neutral_norm
-	trial_name = f"seed{cfg.seed}_lr{cfg.train.lr}_decay{cfg.train.weight_decay}_vf-neun{vfeat_neutral_norm}_vf-webface{vfeat_webface}_wp{wp_rate}_bs{cfg.train.batch_size}_accu{cfg.train.accumulation_steps}_ep{cfg.train.num_epochs}_opt-adamw_trial{cfg.trial}"
+	use_faceseq160 = int(cfg.train.use_faceseq160)
+	trial_name = f"seed{cfg.seed}_lr{cfg.train.lr}_decay{cfg.train.weight_decay}_vf-neun{vfeat_neutral_norm}_vf-webface{vfeat_webface}_vf-facesq160{use_faceseq160}_wp{wp_rate}_bs{cfg.train.batch_size}_accu{cfg.train.accumulation_steps}_ep{cfg.train.num_epochs}_opt-adamw_trial{cfg.trial}"
 	writer = SummaryWriter(osp.join('runs',trial_name))
 	log.info(f"***********\n TRIAL: {trial_name}\n STARTS!***********")
 
