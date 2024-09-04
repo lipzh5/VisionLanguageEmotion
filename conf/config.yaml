@@ -78,7 +78,7 @@ train:
   resnet_trainable: True
   num_epochs: 20
   batch_size: 16
-  accumulation_steps: 2
+  accumulation_steps: 1
   lr: 4e-7 # 4.5e-7
   weight_decay: 0.05
   warm_up: 0.02 # 0.1

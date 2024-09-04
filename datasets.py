@@ -141,6 +141,8 @@ def preprocess_input_vision_encoder(image_path_list, cfg, split_type, no_padding
 	return img_inputs, img_mask
 
 	
+from transformers import AutoImageProcessor
+video_processor = AutoImageProcessor.from_pretrained("MCG-NJU/videomae-base")
 
 def get_vision_inputs_from_video(video_path, transform_cfg, split_type, max_len=VISION_MAX_UTT_LEN):
 	transform = get_transform(transform_cfg, split_type)
@@ -176,6 +178,7 @@ def get_vision_inputs_from_video(video_path, transform_cfg, split_type, max_len=
 		lack = VISION_MAX_UTT_LEN - len(frames)
 		extend_frames = [torch.zeros_like(frames[-1]) for _ in range(lack)]
 		frames.extend(extend_frames)  # ndarray: (720, 1280, 3) 
+	# inputs = video_processor(frames[:8], return_tensors="pt")  # (8, 3, 224, 224)
 	frames = torch.stack(frames)
 	return frames, vision_mask
 	 
