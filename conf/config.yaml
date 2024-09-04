@@ -73,6 +73,7 @@ train:
   
   use_faceseq160: False
   vfeat_neutral_norm: 0
+  vfeat_no_face_ext: 0   # use raw frames, rather than extracted face image
   num_workers: 16
   resnet_trainable: True
   num_epochs: 20

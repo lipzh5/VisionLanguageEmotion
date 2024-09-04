@@ -118,7 +118,7 @@ def preprocess_input_vision_encoder(image_path_list, cfg, split_type, no_padding
 			im_list.append(transform(Image.fromarray(resize(im), mode='RGB')))
 	else:
 		for img_path in image_path_list:
-			im = cv2.imread(img_path)
+			im = cv2.imread(img_path)   # ndarrary: (112, 112, 3) 
 			if im is None:
 				continue
 			if filter_masked_openface and im.sum() < 32 and len(im_list) > 0:  # TODO magic number
@@ -127,6 +127,8 @@ def preprocess_input_vision_encoder(image_path_list, cfg, split_type, no_padding
 				im_list.append(transform(Image.fromarray(im, mode='RGB')))
 			else:
 				im_list.append(transform(Image.fromarray(resize(im), mode='RGB')))
+
+		
 	img_inputs = torch.stack(im_list, dim=0)
 	len_images = len(im_list)
 	img_mask[:len_images] = 1
@@ -139,6 +141,46 @@ def preprocess_input_vision_encoder(image_path_list, cfg, split_type, no_padding
 	return img_inputs, img_mask
 
 	
+
+def get_vision_inputs_from_video(video_path, transform_cfg, split_type, max_len=VISION_MAX_UTT_LEN):
+	transform = get_transform(transform_cfg, split_type)
+	resize = get_resize()
+
+	video = cv2.VideoCapture(video_path)
+	length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+
+	frames = []
+	vision_mask = torch.zeros((VISION_MAX_UTT_LEN,))
+	count = 0
+	if length >= VISION_MAX_UTT_LEN:
+		while(video.isOpened()):
+			ret, image = video.read()
+			if(ret==False):
+				break
+			count += 1
+			frames.append(transform(Image.fromarray(resize(image), mode='RGB')))
+			if count >= VISION_MAX_UTT_LEN:
+				break
+		vision_mask[:len(frames)] = 1
+		video.release()
+
+	else:
+		while(video.isOpened()):
+			ret, image = video.read()
+			if(ret==False):
+				break
+			frames.append(transform(Image.fromarray(resize(image), mode='RGB')))
+
+		vision_mask[:len(frames)] = 1
+		video.release()
+		lack = VISION_MAX_UTT_LEN - len(frames)
+		extend_frames = [torch.zeros_like(frames[-1]) for _ in range(lack)]
+		frames.extend(extend_frames)  # ndarray: (720, 1280, 3) 
+	frames = torch.stack(frames)
+	return frames, vision_mask
+	 
+
+
 def pad_to_len(sequence_data, max_len, pad_value):
 	sequence_data = sequence_data[-max_len:]
 	effective_len = len(sequence_data)
@@ -252,7 +294,7 @@ def get_utt_to_speaker(anno_csv_path, split_type):
 		if speaker_name in LEARDING_ROLES:
 			utt_to_speaker[utt_name] = speaker_name
 	return utt_to_speaker
-	 
+
 
 # input faceseq directly and adapt face embedding during training
 class MultimodalDataset(Dataset):   
@@ -282,6 +324,7 @@ class MultimodalDataset(Dataset):
 
 		self.vfeat_neutral_norm = cfg.train.vfeat_neutral_norm
 		self.neutral_face_path = cfg.dataset.meld.neutral_face_path
+		self.video_dir = cfg.dataset.meld.video_dir
 
 		# if cfg.train.vfeat_penny == 3 and not cfg.train.vfeat_from_pkl:  # using imgs obtained from openface
 		save_to = osp.join(anno_csv_path, f'preprocessed_data/vision/openface_img_paths_{split_type}.json')
@@ -295,12 +338,18 @@ class MultimodalDataset(Dataset):
 		utt_profile_path = os.path.join(dataset_path, 'text', f'{self.split_type}_utt_profile.json')
 		with open(utt_profile_path, 'r') as rd:
 			self.utt_profile = json.load(rd)   # 'idx': ['utt_name', 'dia-name',...]
-		self.vision_feat_fetcher = self._fetch_vision_feat_from_processor_openface
-		if cfg.train.use_faceseq160:
+		if cfg.train.use_faceseq160:  # mainly for ablation study
 			face160_path = os.path.join(dataset_path, 'vision', f'{self.split_type}_facseqs_160_paths_final.json')
 			with open(face160_path, 'r') as f:
 				self.utt_face_path = json.load(f)
-			self.setup_vision_feat_fetcher = self._fetch_vision_feat_from_processor
+			self.vision_feat_fetcher = self._fetch_vision_feat_from_processor
+			return
+		if cfg.train.vfeat_no_face_ext:
+			self.vision_feat_fetcher = self._fetch_vision_feat_from_nofaceext
+			return
+		
+		self.vision_feat_fetcher = self._fetch_vision_feat_from_processor_openface
+		
 		
 
 	def init_text_with_context_modeling(self, anno_csv_dir, split_type, vocab_path, pretrained_path, max_len, pad_value):
@@ -382,6 +431,19 @@ class MultimodalDataset(Dataset):
 			no_resize=False, neutral_norm=self.vfeat_neutral_norm, neutral_face_path=neutral_face_path)
 
 	
+	def _fetch_vision_feat_from_nofaceext(self, index):
+		curr_utt_name, curr_dia_name, dia_idx, curr_dia_len,  curr_idx_in_dia = self.utt_profile[str(index)]
+		video_name = f'{curr_utt_name}.mp4'
+		video_path = osp.join(self.video_dir, self.split_type, video_name)
+		if self.split_type == 'test':
+			try_video_name = f'final_videos_test{curr_utt_name}.mp4'
+			try_video_path = osp.join(self.video_dir, self.split_type, try_video_name)
+			if osp.exists(try_video_path):
+				video_path = try_video_path
+		
+		frames, vision_mask = get_vision_inputs_from_video(video_path, self.data_transform_cfg, self.split_type)
+		return frames, vision_mask
+
 
 
 	def __getitem__(self, index):    
