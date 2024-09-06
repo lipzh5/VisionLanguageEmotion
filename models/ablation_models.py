@@ -21,28 +21,15 @@ from mmcv.cnn import xavier_init
 from conf.config import ATTN_MASK_FILL 
 
 
-class VLEModel(nn.Module):
-	"""vision language to emotion"""
+class LEModel(nn.Module):
+	"""language to emotion"""
 	def __init__(self, cfg):
-		print(f'***** \n 777multimodal init torch seed: {torch.initial_seed()}')
-		print(f'***** \n 777multimodal init cuda seed: {torch.cuda.initial_seed()}')
 		super().__init__()
 		# cross transformer modules
 		transformer_conf = cfg.model.transformers
 		hidden_size = transformer_conf.hidden_size
 		tenc_cfg = cfg.model.text_encoder
 		self.text_linear = nn.Linear(tenc_cfg.embed_dim, hidden_size)   
-		self.vision_linear = nn.Linear(cfg.data.vision_feature_dim, hidden_size)
-		"""vision"""
-		self.vision_utt_transformer = TransformerEncoder(
-		transformer_conf.self_attn_transformer,
-		transformer_conf.self_attn_transformer.num_transformer_layers.vision,
-		cfg.data.vision_utt_max_len, hidden_size)
-
-		self.additive_attn = AdditiveAttention(hidden_size, hidden_size)
-		self.cm_tv_transformer = CrossModalTransformerEncoder(
-			hidden_size,
-			**transformer_conf.cross_modal_transformer.text_vision)
 
 		self.dropout = nn.Dropout(transformer_conf.self_attn_transformer.hidden_dropout_prob)
 		self.classifier = nn.Linear(hidden_size, cfg.data.num_labels)
@@ -53,10 +40,6 @@ class VLEModel(nn.Module):
 		self.context_encoder = AutoModel.from_pretrained(tenc_cfg.pretrained_path, local_files_only=False)
 		self.pad_value = tenc_cfg.pad_value   
 		self.mask_value = tenc_cfg.mask_value 
-
-		# self.vfeat_from_pkl = cfg.train.vfeat_from_pkl
-		# if not cfg.train.vfeat_from_pkl:
-		self.vision_encoder = set_vision_encoder(cfg)
 
 		
 	def _init_weights(self):
@@ -70,14 +53,57 @@ class VLEModel(nn.Module):
 		"""generate vector representation for each turn of conversation"""
 		batch_size, max_len = sentences.shape[0], sentences.shape[-1]
 		sentences = sentences.reshape(-1, max_len)
-		# mask = 1 - (sentences == (self.pad_value)).long()
+		mask = 1 - (sentences == (self.pad_value)).long()
 		utterance_encoded = self.context_encoder(
 			input_ids=sentences,
-			attention_mask=text_mask,
+			attention_mask=mask,
 			output_hidden_states=True,
 			return_dict=True
 		)['last_hidden_state']
-		return self.text_linear(utterance_encoded)  # NOTE: Different from SPCL paper, we use all token reps!!!!
+		mask_pos = (sentences == (self.mask_value)).long().max(1)[1]
+		mask_outputs = utterance_encoded[torch.arange(mask_pos.shape[0]), mask_pos, :]
+		return self.text_linear(mask_outputs) 
+
+	
+	def forward(self, text_input_ids, dummy_vision_inputs, dummy_vision_mask):
+		text_mask = 1 - (text_input_ids == (self.pad_value)).long()
+		text_utt_linear = self.gen_text_reps(text_input_ids, text_mask)
+		return self.classifier(self.dropout(text_utt_linear))
+	
+
+		
+
+class VEModel(nn.Module):
+	"""vision to emotion"""
+	def __init__(self, cfg):
+		super().__init__()
+		# cross transformer modules
+		transformer_conf = cfg.model.transformers
+		hidden_size = transformer_conf.hidden_size
+		tenc_cfg = cfg.model.text_encoder
+		self.vision_linear = nn.Linear(cfg.data.vision_feature_dim, hidden_size)
+		"""vision"""
+		self.vision_utt_transformer = TransformerEncoder(
+		transformer_conf.self_attn_transformer,
+		transformer_conf.self_attn_transformer.num_transformer_layers.vision,
+		cfg.data.vision_utt_max_len, hidden_size)
+
+		self.additive_attn = AdditiveAttention(hidden_size, hidden_size)
+
+		self.dropout = nn.Dropout(transformer_conf.self_attn_transformer.hidden_dropout_prob)
+		self.classifier = nn.Linear(hidden_size, cfg.data.num_labels)
+
+		self._init_weights()
+		
+		self.vision_encoder = set_vision_encoder(cfg)
+
+		
+	def _init_weights(self):
+		# ref to: https://github.com/junjie18/CMT/tree/master
+		for m in self.modules():
+			if hasattr(m, 'weight') and m.weight.dim() > 1:
+				xavier_init(m, distribution='uniform')
+		self._is_init = True
 
 	
 	def gen_vision_reps(self, img_inputs, vision_mask): 
@@ -91,38 +117,20 @@ class VLEModel(nn.Module):
 		output_embeddings = torch.zeros((bs*max_utt_img_len, embedding_dim)).to(img_inputs.device)
 		output_embeddings[vision_mask>0] = embeddings
 		output_embeddings = output_embeddings.reshape(bs, max_utt_img_len, -1)
-		# vision_mask = vision_mask.reshape(bs, max_utt_img_len)  # reshape to orignal 
-		# if self.vfeat_neutral_norm == 2:
-		# 	for i in range(bs):
-		# 		median_vec = torch.median(output_embeddings[i], dim=0).values
-		# 		output_embeddings[i] = output_embeddings[i] - median_vec
+
 		return self.vision_linear(output_embeddings)
 	
 
 	
 	def forward(self, text_input_ids, vision_inputs, vision_mask):
-
-		text_mask = 1 - (text_input_ids == (self.pad_value)).long()
-		text_utt_linear = self.gen_text_reps(text_input_ids, text_mask).transpose(1, 0)  # [256, bs, 768]
 		
 		vision_linear = self.gen_vision_reps(vision_inputs, vision_mask)
 
 		vision_extended_utt_mask = vision_mask.unsqueeze(1).unsqueeze(2)
 		vision_extended_utt_mask = (1.0 - vision_extended_utt_mask) * ATTN_MASK_FILL
 
-		vision_utt_trans = self.vision_utt_transformer(vision_linear, vision_extended_utt_mask).transpose(1, 0) 
-		# text cross vision
-		text_vision_attn = self.cm_tv_transformer(text_utt_linear, vision_utt_trans, vision_utt_trans)
-		vision_text_attn = self.cm_tv_transformer(vision_utt_trans, text_utt_linear, text_utt_linear)
-		text_vision_cross_feat = torch.concat((text_vision_attn, vision_text_attn), dim=0)
-		text_vision_utt_mask = torch.concat((text_mask, vision_mask), dim=1)  # (1, 256), (1, 130)
-		multimodal_out, _ = self.additive_attn(text_vision_cross_feat.transpose(1,0), text_vision_utt_mask)
-		return self.classifier(self.dropout(multimodal_out))
-		# reps = self.dropout(multimodal_out)
-		# return reps, self.classifier(reps)
-
-
+		vision_utt_trans = self.vision_utt_transformer(vision_linear, vision_extended_utt_mask)
 		
-
-
-
+		vision_reps, _ = self.additive_attn(vision_utt_trans, vision_mask)
+		return self.classifier(self.dropout(vision_reps))
+		

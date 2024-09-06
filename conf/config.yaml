@@ -86,6 +86,7 @@ train:
   log_interval: 100
   # aux_log_interval: 100
   save_model_path: ${cwd}/saved_model
+  ablation: 1  # 1 w/o text; 2 w/o vision
 
 
 
