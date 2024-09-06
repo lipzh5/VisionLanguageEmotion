@@ -36,7 +36,6 @@ def multimodal_train(cfg, train_loader, model, optimizer, scheduler, loss_fn, ep
 		text_input_ids, vision_inputs, vision_mask, label_ids = batch
 
 		logits = model(text_input_ids, vision_inputs, vision_mask)
-		
 		loss = loss_fn(logits, label_ids) 
 		losses.update(loss.item(), label_ids.shape[0])
 		
