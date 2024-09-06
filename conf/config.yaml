@@ -41,6 +41,7 @@ model:
     mask_value: 2
   
   vision_encoder:
+    pretrained_path: ''
     model_name: 'inceptionresnetv1' # or resnet50
     use_webface_pretrain: True
 
