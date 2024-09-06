@@ -78,7 +78,7 @@ def save_model(model, optimizer, cfg, model_name='vle_model.pth'):
 def set_vision_encoder(cfg):
 	pretrained_model_path = cfg.model.vision_encoder.pretrained_path
 	if pretrained_model_path:
-		resnet = SupConResNet()
+		resnet = SupConResNet(use_webface_pretrain=cfg.model.vision_encoder.use_webface_pretrain)
 		# resnet = SupCEResNet(name='inceptionresnetv1', num_classes=3, use_webface_pretrain=cfg.model.vision_encoder.use_webface_pretrain)
 		ckpt = torch.load(pretrained_model_path, map_location='cpu')
 		state_dict = ckpt['model']
