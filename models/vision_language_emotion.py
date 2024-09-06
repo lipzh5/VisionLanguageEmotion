@@ -42,9 +42,9 @@ class VLEModel(nn.Module):
 		self.cm_tv_transformer = CrossModalTransformerEncoder(
 			hidden_size,
 			**transformer_conf.cross_modal_transformer.text_vision)
-		# self.additive_attn = AdditiveAttention(hidden_size, hidden_size)
-		self.multimodal_projection = nn.Linear(100+256, 1) 
-		print(f'no additive attention, use linear projection instead!!!\n******')
+		self.additive_attn = AdditiveAttention(hidden_size, hidden_size)
+		# self.multimodal_projection = nn.Linear(100+256, 1) 
+		# print(f'no additive attention, use linear projection instead!!!\n******')
 
 		self.dropout = nn.Dropout(transformer_conf.self_attn_transformer.hidden_dropout_prob)
 		self.classifier = nn.Linear(hidden_size, cfg.data.num_labels)
@@ -119,9 +119,8 @@ class VLEModel(nn.Module):
 		text_vision_cross_feat = torch.concat((text_vision_attn, vision_text_attn), dim=0)
 		text_vision_utt_mask = torch.concat((text_mask, vision_mask), dim=1)  # (1, 256), (1, 130)
 	
-		multimodal_out = self.multimodal_projection(text_vision_cross_feat.permute(1, 2, 0)).squeeze(-1)  # (seq_len, bs, emb_dim)
-	
-		# multimodal_out, _ = self.additive_attn(text_vision_cross_feat.transpose(1,0), text_vision_utt_mask)
+		# multimodal_out = self.multimodal_projection(text_vision_cross_feat.permute(1, 2, 0)).squeeze(-1)  # (seq_len, bs, emb_dim)
+		multimodal_out, _ = self.additive_attn(text_vision_cross_feat.transpose(1,0), text_vision_utt_mask)
 		return self.classifier(self.dropout(multimodal_out))
 		# reps = self.dropout(multimodal_out)
 		# return reps, self.classifier(reps)

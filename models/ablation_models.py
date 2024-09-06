@@ -88,10 +88,10 @@ class VEModel(nn.Module):
 		transformer_conf.self_attn_transformer.num_transformer_layers.vision,
 		cfg.data.vision_utt_max_len, hidden_size)
 
-		self.vision_projection = nn.Linear(100, 1)
-		print(f'no additive attention, use linear projection instead!!! \n*****')
-		# self.additive_attn = AdditiveAttention(hidden_size, hidden_size)
-		# self.dropout = nn.Dropout(transformer_conf.self_attn_transformer.hidden_dropout_prob)
+		# self.vision_projection = nn.Linear(100, 1)
+		# print(f'no additive attention, use linear projection instead!!! \n*****')
+		self.additive_attn = AdditiveAttention(hidden_size, hidden_size)
+		self.dropout = nn.Dropout(transformer_conf.self_attn_transformer.hidden_dropout_prob)
 		self.classifier = nn.Linear(hidden_size, cfg.data.num_labels)
 
 		self._init_weights()
@@ -131,11 +131,8 @@ class VEModel(nn.Module):
 		vision_extended_utt_mask = (1.0 - vision_extended_utt_mask) * ATTN_MASK_FILL
 
 		vision_utt_trans = self.vision_utt_transformer(vision_linear, vision_extended_utt_mask)
-		projected = self.vision_projection(vision_utt_trans.transpose(1, 2)).squeeze(-1)
-
-		return self.classifier(projected)
-		
-		# vision_reps, _ = self.additive_attn(vision_utt_trans, vision_mask)
-		# print(f'vision resp shape: {vision_reps.shape} \n****')
-		# return self.classifier(self.dropout(vision_reps))
+		# projected = self.vision_projection(vision_utt_trans.transpose(1, 2)).squeeze(-1)
+		# return self.classifier(projected)
+		vision_reps, _ = self.additive_attn(vision_utt_trans, vision_mask)
+		return self.classifier(self.dropout(vision_reps))
 		
