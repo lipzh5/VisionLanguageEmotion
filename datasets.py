@@ -100,7 +100,7 @@ def preprocess_input_vision_encoder(image_path_list, cfg, split_type, no_padding
 
 	if neutral_norm:  # normalize using neural frame
 		# img_mask = img_mask[1:]   # drop the first ref frame
-		if neutral_face_path is not None and neutral_norm == 1:  # TODO neutral_norm=1, then use the neutral faces of leading roles
+		if neutral_face_path is not None and neutral_norm: 
 			ref_frame = cv2.imread(neutral_face_path)
 			# ref_frame = resize(ref_frame)
 		else:
@@ -321,7 +321,6 @@ class MultimodalDataset(Dataset):
 		# record utt-speaker mapping
 		self.utt_to_speaker = get_utt_to_speaker(anno_csv_path, split_type)
 		'''visual modality inputs
-		   TODO extract from raw video
 		'''
 		self.setup_vision_feat_fetcher(cfg)
 
@@ -329,7 +328,6 @@ class MultimodalDataset(Dataset):
 		self.neutral_face_path = cfg.dataset.meld.neutral_face_path
 		self.video_dir = cfg.dataset.meld.video_dir
 
-		# if cfg.train.vfeat_penny == 3 and not cfg.train.vfeat_from_pkl:  # using imgs obtained from openface
 		save_to = osp.join(anno_csv_path, f'preprocessed_data/vision/openface_img_paths_{split_type}.json')
 		self.openface_img_paths = get_openface_aligned_img_paths(anno_csv_path, split_type, save_to)
 		print(f'openface img path: {save_to} \n *****')

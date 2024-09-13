@@ -127,6 +127,23 @@ def main(cfg: DictConfig) -> None:
 		num_warmup_steps=int(total_training_steps * cfg.train.warm_up),
 		num_training_steps=total_training_steps)
 	loss_fn = torch.nn.CrossEntropyLoss().cuda(device_id)
+
+	if cfg.do_eval:
+		state_dict = torch.load(cfg.train.save_model_path, map_location=torch.device(f'cuda:{device_id}'))
+		model.load_state_dict(state_dict['model'])
+		test_loss, results, truths = multimodal_evaluate(cfg, test_loader, model, loss_fn, epoch=1, test=True)
+		test_wf = eval_meld(results, truths, test=True)
+		print(f'test wf: {test_wf} , results: {results.shape}, truths: {truths.shape} \n****')
+		pred_label = results.argmax(1).detach().cpu().numpy() 
+		true_label = truths.detach().cpu().numpy()
+
+		f1_each_label = f1_score(true_label, pred_label, average=None)
+		test_f1 = f1_score(true_label, pred_label, average='weighted')
+
+		print(f'**test** | f1 on each class (Neutral, Surprise, Fear, Sadness, Joy, Disgust, Anger): \n', f1_each_label)
+		print(f'test f1: {test_f1} \n****')
+		
+		return
 	
 	best_val_wf = 0.0
 	for epoch in range(1, num_epochs + 1):

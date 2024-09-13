@@ -24,8 +24,6 @@ from conf.config import ATTN_MASK_FILL
 class VLEModel(nn.Module):
 	"""vision language to emotion"""
 	def __init__(self, cfg):
-		print(f'***** \n 777multimodal init torch seed: {torch.initial_seed()}')
-		print(f'***** \n 777multimodal init cuda seed: {torch.cuda.initial_seed()}')
 		super().__init__()
 		# cross transformer modules
 		transformer_conf = cfg.model.transformers
@@ -43,8 +41,6 @@ class VLEModel(nn.Module):
 			hidden_size,
 			**transformer_conf.cross_modal_transformer.text_vision)
 		self.additive_attn = AdditiveAttention(hidden_size, hidden_size)
-		# self.multimodal_projection = nn.Linear(100+256, 1) 
-		# print(f'no additive attention, use linear projection instead!!!\n******')
 
 		self.dropout = nn.Dropout(transformer_conf.self_attn_transformer.hidden_dropout_prob)
 		self.classifier = nn.Linear(hidden_size, cfg.data.num_labels)
@@ -56,8 +52,6 @@ class VLEModel(nn.Module):
 		self.pad_value = tenc_cfg.pad_value   
 		self.mask_value = tenc_cfg.mask_value 
 
-		# self.vfeat_from_pkl = cfg.train.vfeat_from_pkl
-		# if not cfg.train.vfeat_from_pkl:
 		self.vision_encoder = set_vision_encoder(cfg)
 
 		
@@ -93,11 +87,6 @@ class VLEModel(nn.Module):
 		output_embeddings = torch.zeros((bs*max_utt_img_len, embedding_dim)).to(img_inputs.device)
 		output_embeddings[vision_mask>0] = embeddings
 		output_embeddings = output_embeddings.reshape(bs, max_utt_img_len, -1)
-		# vision_mask = vision_mask.reshape(bs, max_utt_img_len)  # reshape to orignal 
-		# if self.vfeat_neutral_norm == 2:
-		# 	for i in range(bs):
-		# 		median_vec = torch.median(output_embeddings[i], dim=0).values
-		# 		output_embeddings[i] = output_embeddings[i] - median_vec
 		return self.vision_linear(output_embeddings)
 	
 
@@ -119,7 +108,6 @@ class VLEModel(nn.Module):
 		text_vision_cross_feat = torch.concat((text_vision_attn, vision_text_attn), dim=0)
 		text_vision_utt_mask = torch.concat((text_mask, vision_mask), dim=1)  # (1, 256), (1, 130)
 	
-		# multimodal_out = self.multimodal_projection(text_vision_cross_feat.permute(1, 2, 0)).squeeze(-1)  # (seq_len, bs, emb_dim)
 		multimodal_out, _ = self.additive_attn(text_vision_cross_feat.transpose(1,0), text_vision_utt_mask)
 		return self.classifier(self.dropout(multimodal_out))
 		# reps = self.dropout(multimodal_out)

@@ -104,6 +104,40 @@ def main(cfg: DictConfig) -> None:
 	device_id = cfg.device_id[0]
 	bs_multiplier = 2  
 	n_workers = cfg.train.num_workers
+	
+	loss_fn = torch.nn.CrossEntropyLoss().cuda(device_id)
+	model = VEModel(cfg) if cfg.train.ablation == 1 else LEModel(cfg)
+	model = model.cuda(device_id)
+
+	test_data = get_multimodal_data(cfg, 'test')
+	# gt_labels = []
+	# f = open('gt_label2.txt', 'w')
+	# for t in test_data:
+	# 	gt_label = t[-1].item()
+	# 	f.write(str(gt_label))
+	# 	# gt_labels.append(t[-1].item())
+	# f.close()
+	# print(f'len gt labels: {len(gt_labels)} \n****')
+	# raise ValueError('Penny stops here!!!')
+	test_loader = DataLoader(test_data, shuffle=False, batch_size=cfg.train.batch_size * bs_multiplier, num_workers=n_workers)
+	if cfg.do_eval:
+		state_dict = torch.load(cfg.train.save_model_path, map_location=torch.device(f'cuda:{device_id}'))
+		model.load_state_dict(state_dict['model'])
+		test_loss, results, truths = multimodal_evaluate(cfg, test_loader, model, loss_fn, epoch=1, test=True)
+		test_wf = eval_meld(results, truths, test=True)
+		print(f'test wf: {test_wf} , results: {results.shape}, truths: {truths.shape} \n****')
+		pred_label = results.argmax(1).detach().cpu().numpy() 
+		true_label = truths.detach().cpu().numpy()
+		# f = open('le_pred.txt', 'w')
+		# for i in range(2609):
+		# 	f.write(str(pred_label[i]))
+		# f.close()
+
+		# f = open('gt_labels.txt', 'w')
+		# for i in range(2609):
+		# 	f.write(str(true_label[i]))	
+		return
+
 
 	train_data = get_multimodal_data(cfg, 'train')
 	print(f'multimodal train data set len: {len(train_data)} \n *****')
@@ -111,13 +145,6 @@ def main(cfg: DictConfig) -> None:
 	train_loader = DataLoader(train_data, shuffle=True, batch_size=cfg.train.batch_size, num_workers=n_workers)
 	val_data = get_multimodal_data(cfg, 'val')
 	val_loader = DataLoader(val_data, shuffle=False, batch_size=cfg.train.batch_size * bs_multiplier, num_workers=n_workers)
-
-	test_data = get_multimodal_data(cfg, 'test')
-	test_loader = DataLoader(test_data, shuffle=False, batch_size=cfg.train.batch_size * bs_multiplier, num_workers=n_workers)
-
-	# model = VLEModel(cfg).cuda(device_id)
-	model = VEModel(cfg) if cfg.train.ablation == 1 else LEModel(cfg)
-	model = model.cuda(device_id)
 
 	optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.train.lr, weight_decay=cfg.train.weight_decay)
 
@@ -128,7 +155,6 @@ def main(cfg: DictConfig) -> None:
 		optimizer=optimizer,
 		num_warmup_steps=int(total_training_steps * cfg.train.warm_up),
 		num_training_steps=total_training_steps)
-	loss_fn = torch.nn.CrossEntropyLoss().cuda(device_id)
 	
 	best_val_wf = 0.0
 	for epoch in range(1, num_epochs + 1):
