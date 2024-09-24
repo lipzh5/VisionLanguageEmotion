@@ -1,0 +1,16 @@
+
+torch==2.2.2 
+torchvision==0.17.2 
+torchaudio==2.2.2 
+
+transformers
+scikit-learn
+pandas
+mmcv-full
+hydra-core
+pandas
+opencv-python
+librosa
+vocab
+facenet_pytorch
+tensorboard
