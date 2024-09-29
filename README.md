@@ -8,7 +8,7 @@ This is the official implementation of the ML part of our paper **UGotMe: An Emb
 ```
 git clone git@github.com:lipzh5/VisionLanguageEmotion.git
 cd VisionLanguageEmotion
-# create enc using conda for CUDA 12.1
+# create env using conda for CUDA 12.1
 conda create -n vl2e python=3.8 
 conda activate vl2e
 pip install -r requirements.txt
