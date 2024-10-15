@@ -14,7 +14,13 @@ conda activate vl2e
 pip install -r requirements.txt
 
 ```
-### 2. Run model training with your own hyperparameters
+
+### 2. Download [checkpoint](https://drive.google.com/file/d/1_jzyHdjPqhileNDYwuflsw4Iwv2JbRuv/view?usp=sharing) and run test with default hyperparamters
+```
+python main.py train.save_model_path=PATH_TO_DOWNLOADED_CHECKPOINT do_eval=True
+```
+
+### 3. Run model training with your own hyperparameters
 ```
 python main.py train.batch_size=8 train.accumulation_steps=2
 ```

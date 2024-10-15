@@ -79,8 +79,8 @@ train:
   resnet_trainable: True
   num_epochs: 20
   batch_size: 16
-  accumulation_steps: 1
-  lr: 4e-7 # 4.5e-7
+  accumulation_steps: 2
+  lr: 4e-7 
   weight_decay: 0.05
   warm_up: 0.02 # 0.1
   gradient_clip_value: 10   # 5: ref to SPCL , 10: ref to TelME , 0.8: ref to FacialMMT
