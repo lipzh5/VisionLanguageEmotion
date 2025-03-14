@@ -1,7 +1,7 @@
 # Vision-Lanugage to Emotion Model for Affective Human-Robot Interaction
 
 ## Introduction
-This is the official implementation of the ML part of our paper **UGotMe: An Embodied System for Affective Human-Robot Interaction**
+This is the official implementation of the ML part of our paper [**UGotMe: An Embodied System for Affective Human-Robot Interaction**](https://arxiv.org/pdf/2410.18373)
 
 ## Getting Started
 ### 1. Clone the code the prepare the environment
